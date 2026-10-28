@@ -1,0 +1,45 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Image Intake (S3 Event to Lambda to DynamoDB)
+Resources:
+  ImageMetadataTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: ObjectKey
+        Type: String
+  SourceBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: image-intake-bucket
+  OutputBucket:
+    Type: AWS::S3::Bucket
+  ImageIntakeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ImageIntakeFunction
+      Handler: app.handler
+      Runtime: nodejs24.x
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Ref: ImageMetadataTable
+          OUTPUT_BUCKET_NAME:
+            Ref: OutputBucket
+      Policies:
+      - AmazonS3ReadOnlyAccess
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: ImageMetadataTable
+      - S3CrudPolicy:
+          BucketName:
+            Ref: OutputBucket
+      Events:
+        BucketUploadEvent:
+          Type: S3
+          Properties:
+            Bucket:
+              Ref: SourceBucket
+            Events: s3:ObjectCreated:*
+    Metadata:
+      SamResourceId: ImageIntakeFunction
